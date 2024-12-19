@@ -4,6 +4,8 @@
 
 $dir = "$($env:ProgramData)\ZenGuard"
 
+Start-Transcript -Path "$dir\DeviceSetupLog.txt"
+
 $packages =
 [PSCustomObject]@{
     Name         = "Drata"
@@ -29,7 +31,6 @@ $packages =
     Type         = "Machine"
     SilentSwitch = "/bdparams /silent"
 }
-
 
 #Start Encryption
 Write-Host "Starting BitLocker on $env:SystemDrive...`n"
@@ -61,7 +62,6 @@ do {
 
 # Restore the original progress preference
 $ProgressPreference = $ProgressPreference_bk
-
 
 ###################################
 ########## Windows Update #########
@@ -166,3 +166,4 @@ Write-Host "Installation Process Completed...`n" -ForegroundColor Green
 Write-Host "Provisioining Complete!`n" -ForegroundColor Green
 Write-Host "Rebooting in 1 minute to apply updates..." -ForegroundColor Yellow
 Start-Sleep -seconds 60; Restart-Computer -Force
+Stop-Transcript
