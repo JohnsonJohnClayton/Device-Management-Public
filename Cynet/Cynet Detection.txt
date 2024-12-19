@@ -1,0 +1,19 @@
+Cynet Detection:
+Registry Keys:
+Computer\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Cynet Security LTD\CynetEPS
+	Path	| C:\Program Files (x86)\Cynet Security LTD\CynetEPS\
+	Version	| 4.1.2.2440
+	
+Computer\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{508860FF-94CF-46B4-9850-A40FFE6C42DB}
+	InstallLocation	| C:\Program Files (x86)\Cynet Security LTD\CynetEPS\
+	Publisher 		| Cynet Security LTD
+	
+Computer\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\CynetEPS 4.1.2.2440
+	DisplayName		| CynetEPS
+	DisplayVersion	| 4.22.4.14749
+	InstallLocation	| C:\Program Files (x86)\Cynet Security LTD\CynetEPS\
+	
+Task Manager:
+Name			|PID	|Status	|Description
+CynetEPS.exe	|25756	|Running|Cynet Scanner
+CynetMS.exe		|6668	|Running|Cynet Memory Scanner

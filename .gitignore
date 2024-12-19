@@ -1,0 +1,6 @@
+*.pkg
+*.msi
+*.exe
+*.intunewin
+*.dmg
+*.iso
