@@ -66,47 +66,161 @@ $ProgressPreference = $ProgressPreference_bk
 ###################################
 ########## Windows Update #########
 ###################################
+$UpdateScript = "$dir\Run-Updates.ps1"
 Write-Host "Running Windows Updates in a concurrent process..."
-$job = Start-Job -ScriptBlock {
-    # Setup Windows Update
-    # Check if NuGet package provider is available
-    $nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue
-
-    # Install NuGet package provider if not found
-    if ($null -eq $nuget) {
-        Install-PackageProvider -Name NuGet -Confirm:$false -Force
-    }
-
-    # Check if the PSWindowsUpdate module is available
-    $module = Get-Module 'PSWindowsUpdate' -ListAvailable
-
-    # Install PSWindowsUpdate module if not found
-    if ($null -eq $module) {
-        Install-Module PSWindowsUpdate -Confirm:$false -Force
-    }
-
-    # Retrieve available Windows updates
-    $updates = Get-WindowsUpdate 
-
-    # Install Windows updates if any are available
-    if ($null -ne $updates) {
-        Install-WindowsUpdate -AcceptAll -Install -IgnoreReboot | 
-        Select-Object KB, Result, Title, Size  # Select specific properties to display
-    }
-
-    # Check if a reboot is required after updates are installed
-    $status = Get-WURebootStatus -Silent
-
-    Write-Host "`nWindows Updates Complete`n" -ForegroundColor Green
-}
-$result = $job | Wait-Job | Receive-Job
-
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
+Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
 
 ###################################
 ############# Debloat #############
 ###################################
 Write-Host "Beginning Debloat Process..."
-cmd.exe /c powershell.exe -ExecutionPolicy Bypass -File "$dir\Prep-Device.ps1"
+$DebloatFolder = "C:\ProgramData\Debloat"
+If (Test-Path $DebloatFolder) {
+    Write-Output "$DebloatFolder exists. Skipping."
+}
+Else {
+    Write-Output "The folder '$DebloatFolder' doesn't exist. This folder will be used for storing logs created after the script runs. Creating now."
+    Start-Sleep 1
+    New-Item -Path "$DebloatFolder" -ItemType Directory
+    Write-Output "The folder $DebloatFolder was successfully created."
+}
+
+$templateFilePath = "C:\ProgramData\Debloat\removebloat.ps1"
+
+Invoke-WebRequest `
+-Uri "https://raw.githubusercontent.com/andrew-s-taylor/public/main/De-Bloat/RemoveBloat.ps1" `
+-OutFile $templateFilePath `
+-UseBasicParsing `
+-Headers @{"Cache-Control"="no-cache"}
+
+
+##Populate between the speechmarks any apps you want to whitelist, comma-separated
+$arguments = ' -customwhitelist ""'
+
+
+invoke-expression -Command "$templateFilePath $arguments"
+
+## Set other settings ##
+
+#Get all SIDS to remove at user-level if needed
+$UserSIDs = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList" | Select-Object -ExpandProperty PSChildName
+function Set-Regkey {
+    # Requires the full path of the registry key to set
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory=$true)]
+      [string] $FullPath,
+      
+      [Parameter(Mandatory=$true)]
+      [string] $value
+    )
+
+    #Extract key from full path
+    $key = Split-Path -Leaf $FullPath
+    $path = Split-Path $FullPath
+    try {
+        Write-Output "`nAttempting to set $path\$key to $value..."
+        If (!(Test-Path $path)) {
+            New-Item $path
+        }
+        If (Test-Path $path) {
+            Set-ItemProperty $path $key -Value $value
+        }
+        Write-Output "Successfully set $path\$key to $value"
+        #Do the same for all users
+        if ($path.StartsWith("HKCU")) {
+
+            $path = $path -replace "^HKCU:", ""
+            foreach ($sid in $UserSIDs) {
+                $userPath = "Registry::HKU\"+$sid+$path
+                If (!(Test-Path $userPath)) {
+                    New-Item $userPath
+                } Else {
+                Set-ItemProperty $userPath $key -Value $value
+                }
+            }
+            Write-Output "Successfully set $userPath\$key to $value for all users"
+        }
+    } catch {
+        Write-Warning "`nThere was an issue writing $path\$key"
+        Write-Warning $_
+    }
+}
+function Remove-Regkey {
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory=$true)]
+      [string] $path
+    )
+    try {
+        Write-Output "`nAttempting to remove $path"
+        If (Test-Path $path) {
+           Remove-Item $path -Recurse
+           Write-Output "Removed $path and its child items"
+        } else {
+            Write-Output "No path found at $path"
+        }
+    } catch {
+        Write-Warning "`nThere was an issue removing"
+        Write-Warning $_
+    }
+}
+function Restart-Explorer {
+    Write-Output "> Restarting windows explorer to apply all changes."
+
+    Start-Sleep 0.5
+
+    taskkill /f /im explorer.exe
+
+    Start-Process explorer.exe
+
+    Write-Output ""
+}
+
+$RegkeysToSet = @{
+    #Disable Bing from Search bar
+    "HKLM:\Software\Policies\Microsoft\Windows\Explorer\DisableSearchBoxSuggestions" = 00000001
+    #Remove chat from taskbar
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarMn" = 00000000
+    #Tailored experiences with diagnostic data for Current User
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy\TailoredExperiencesWithDiagnosticDataEnabled" = 00000000
+    #Disable Lockscreen tips
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\SubscribedContent-338387Enabled" = 00000000
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\RotatingLockScreenOverlayEnabled" = 00000000
+    #Disable Improving Inking and Typing Recognition
+    "HKCU:\Software\Microsoft\Input\TIPC\Enabled" = 00000000
+    #Disable Widgets on Taskbar
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDa" = 00000000
+    #Disable Widgets Service
+    "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\NewsAndInterests\AllowNewsAndInterests\value" = 00000000
+    "HKLM:\SOFTWARE\Policies\Microsoft\Dsh\AllowNewsAndInterests" = 00000000
+
+}
+
+$RegkeysToRemove = @(
+    #Remove Gallery and Home from quick access
+    # Gallery
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\Namespace\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}"
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace_41040327\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}"
+    # Home
+    #"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}"
+    #"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace_36354489\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}"
+    #Hide duplicate drives from Flie Explorer
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}"
+)
+
+ForEach ($Path in $RegkeysToSet.Keys){
+    Set-Regkey -FullPath $Path -value $RegkeysToSet[$Path]
+}
+
+ForEach($Path in $RegkeysToRemove){
+    Remove-Regkey -path $Path
+}
+
+#Restart explorer to apply changes
+Restart-Explorer
+
 Write-Host "Debloat Complete`n" -ForegroundColor Green
 
 ###################################
