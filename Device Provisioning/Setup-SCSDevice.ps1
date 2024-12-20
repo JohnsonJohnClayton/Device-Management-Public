@@ -221,6 +221,11 @@ ForEach($Path in $RegkeysToRemove){
 #Restart explorer to apply changes
 Restart-Explorer
 
+#Remove anything left over
+Get-AppxPackage -AllUsers *mirkat* | Remove-AppxPackage -AllUsers
+Get-AppxPackage -AllUsers *mcafee* | Remove-AppxPackage -AllUsers
+Get-AppxPackage -AllUsers *teams* | Remove-AppxPackage -AllUsers
+
 Write-Host "Debloat Complete`n" -ForegroundColor Green
 
 ###################################
