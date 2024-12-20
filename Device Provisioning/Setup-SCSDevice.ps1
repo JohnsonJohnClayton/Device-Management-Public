@@ -225,6 +225,7 @@ Restart-Explorer
 Get-AppxPackage -AllUsers *mirkat* | Remove-AppxPackage -AllUsers
 Get-AppxPackage -AllUsers *mcafee* | Remove-AppxPackage -AllUsers
 Get-AppxPackage -AllUsers *teams* | Remove-AppxPackage -AllUsers
+Get-AppxPackage -AllUsers *alexa* | Remove-AppxPackage -AllUsers
 
 Write-Host "Debloat Complete`n" -ForegroundColor Green
 
