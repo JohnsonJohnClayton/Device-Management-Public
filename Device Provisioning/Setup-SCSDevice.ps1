@@ -281,6 +281,7 @@ Write-Host "Installation Process Completed...`n" -ForegroundColor Green
 ###################################
 
 Write-Host "Provisioining Complete!`n" -ForegroundColor Green
-Write-Host "Rebooting in 1 minute to apply updates..." -ForegroundColor Yellow
-Start-Sleep -seconds 60; Restart-Computer -Force
+Write-Host "Rebooting in 5 minutes to apply updates..." -ForegroundColor Yellow
+Write-Host "-Press CTRL+C to cancel-"
+Start-Sleep -seconds 300; Restart-Computer -Force
 Stop-Transcript

@@ -4,8 +4,12 @@
 
 Start-Transcript -Path "$dir\DeviceSetupLog.txt"
 
+Write-Host "Beginning Windows Updates..."
+Write-Host "Installing required modules..."
+
 # Setup Windows Update
 # Check if NuGet package provider is available
+Write-Host "Installing NuGet..."
 $nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue
 
 # Install NuGet package provider if not found
@@ -18,6 +22,7 @@ $module = Get-Module 'PSWindowsUpdate' -ListAvailable
 
 # Install PSWindowsUpdate module if not found
 if ($null -eq $module) {
+    Write-Host "Installing PSWindowsUpdate module..."
     Install-Module PSWindowsUpdate -Confirm:$false -Force
 }
 
