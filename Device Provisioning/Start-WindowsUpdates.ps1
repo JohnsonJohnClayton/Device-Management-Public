@@ -1,7 +1,7 @@
 ###################################
 ########## Windows Update #########
 ###################################
-
+$dir = "$($env:ProgramData)\ZenGuard"
 Start-Transcript -Path "$dir\DeviceSetupLog.txt"
 
 Write-Host "Beginning Windows Updates..."

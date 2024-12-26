@@ -282,6 +282,65 @@ foreach ($package in $packages) {
 
 Write-Host "Installation Process Completed...`n" -ForegroundColor Green
 
+#################################################
+######## Install Google Drive Shortcuts #########
+#################################################
+# move google shortcuts on scadmin desktop to default user desktop
+Write-Host "Moving Google Drive Shortcuts to Default User Desktop"
+
+# Define the source and destination paths
+$sourceFolder = "C:\Users\scadmin\Desktop"
+$destinationFolder = "C:\Users\Default\Desktop"
+
+# Copy Google Drive shortcuts
+Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
+    Copy-Item $_.FullName -Destination $destinationFolder -Force
+}
+
+
+#####################################
+######## Run BitLocker Scan #########
+#####################################
+Write-Host "Running BitLocker Scan.."
+& 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom
+
+#####################################
+######## Set Power Settings #########
+#####################################
+Write-Host "Creating and setting power plan.."
+
+# Create a new power plan based on the Balanced plan
+$balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+$newPlanGuid = powercfg -duplicatescheme $balancedGuid
+
+# Rename the new plan
+powercfg -changename $newPlanGuid "SCS  Power Plan" "SCS Custom power plan"
+
+# Set the new plan as active
+powercfg -setactive $newPlanGuid
+
+# Set hard disk turn off time to 0 (never)
+powercfg -change -disk-timeout-ac 0
+powercfg -change -disk-timeout-dc 0
+
+# Set display turn off time (15 minutes on battery, 1 hour when plugged in)
+powercfg -change -monitor-timeout-dc 15
+powercfg -change -monitor-timeout-ac 60
+
+# Set sleep settings (never on both)
+powercfg -change -standby-timeout-dc 0
+powercfg -change -standby-timeout-ac 0
+
+# Set lid close action (sleep on battery, do nothing when plugged in)
+powercfg -setdcvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
+powercfg -setacvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+
+# Apply changes
+powercfg -setactive $newPlanGuid
+
+Write-Host "Custom power plan created and activated with specified settings."
+
+
 ###################################
 ############# Reboot ##############
 ###################################
