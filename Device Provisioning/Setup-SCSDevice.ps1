@@ -63,6 +63,42 @@ do {
 # Restore the original progress preference
 $ProgressPreference = $ProgressPreference_bk
 
+##############################
+########## Setttings #########
+##############################
+
+# Enable location services so the time zone will be set automatically (even when skipping the privacy page in OOBE) when an administrator signs in
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Type "String" -Value "Allow" -Force
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Overrides\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}" -Name "SensorPermissionState" -Type "DWord" -Value 1 -Force
+Start-Service -Name "lfsvc" -ErrorAction SilentlyContinue
+
+# Set Power Settings
+Write-Host "Creating and setting power plan.."
+
+# Create a new power plan based on the Balanced plan
+$balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+$newPlanGuid = powercfg -duplicatescheme $balancedGuid
+# Rename the new plan
+powercfg -changename $newPlanGuid "SCS  Power Plan" "SCS Custom power plan"
+# Set the new plan as active
+powercfg -setactive $newPlanGuid
+# Set hard disk turn off time to 0 (never)
+powercfg -change -disk-timeout-ac 0
+powercfg -change -disk-timeout-dc 0
+# Set display turn off time (15 minutes on battery, 1 hour when plugged in)
+powercfg -change -monitor-timeout-dc 15
+powercfg -change -monitor-timeout-ac 60
+# Set sleep settings (never on both)
+powercfg -change -standby-timeout-dc 0
+powercfg -change -standby-timeout-ac 0
+# Set lid close action (sleep on battery, do nothing when plugged in)
+powercfg -setdcvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
+powercfg -setacvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+# Apply changes
+powercfg -setactive $newPlanGuid
+
+Write-Host "Custom power plan created and activated with specified settings."
+
 ###################################
 ########## Windows Update #########
 ###################################
@@ -299,47 +335,10 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
 
 
 #####################################
-######## Run BitLocker Scan #########
+######## Run BitDefender Scan #########
 #####################################
-Write-Host "Running BitLocker Scan.."
+Write-Host "Running BitDefender Scan.."
 & 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom
-
-#####################################
-######## Set Power Settings #########
-#####################################
-Write-Host "Creating and setting power plan.."
-
-# Create a new power plan based on the Balanced plan
-$balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
-$newPlanGuid = powercfg -duplicatescheme $balancedGuid
-
-# Rename the new plan
-powercfg -changename $newPlanGuid "SCS  Power Plan" "SCS Custom power plan"
-
-# Set the new plan as active
-powercfg -setactive $newPlanGuid
-
-# Set hard disk turn off time to 0 (never)
-powercfg -change -disk-timeout-ac 0
-powercfg -change -disk-timeout-dc 0
-
-# Set display turn off time (15 minutes on battery, 1 hour when plugged in)
-powercfg -change -monitor-timeout-dc 15
-powercfg -change -monitor-timeout-ac 60
-
-# Set sleep settings (never on both)
-powercfg -change -standby-timeout-dc 0
-powercfg -change -standby-timeout-ac 0
-
-# Set lid close action (sleep on battery, do nothing when plugged in)
-powercfg -setdcvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
-powercfg -setacvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
-
-# Apply changes
-powercfg -setactive $newPlanGuid
-
-Write-Host "Custom power plan created and activated with specified settings."
-
 
 ###################################
 ############# Reboot ##############
