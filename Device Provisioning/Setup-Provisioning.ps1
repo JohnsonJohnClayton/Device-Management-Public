@@ -1,3 +1,26 @@
+<#
+.SYNOPSIS
+    Device setup and provisioning script for Windows SafetyChain Software devices.
+
+.DESCRIPTION
+    This script performs initial setup and configuration tasks for a Windows device, including:
+    - Creating a ZenGuard directory and copying files
+    - Configuring RunOnce for post-logon setup
+    - Importing custom Start Menu configuration
+    - Enabling location services
+    - Configuring system and user profile settings
+    - Removing bloatware and unnecessary features
+
+.NOTES
+    Author: John Johnson (ZenGuard Managed Services, LLC)
+    Creation Date: 12/19/2024
+    Last Modified: 02/06/2025
+
+.OUTPUTS
+    Log file: $env:ProgramData\ZenGuard\OOBE_DeviceSetupLog.txt
+#>
+
+
 # Start Log
 $dir = "$($env:ProgramData)\ZenGuard"
 Start-Transcript -Path "$dir\OOBE_DeviceSetupLog.txt"
@@ -10,8 +33,8 @@ Get-ChildItem | Where-Object{$_.name -ne "Setup-Provisioning.ps1"} | ForEach-Obj
     Copy-Item $_.FullName "$($dir)\$($_.name)" -Force
 }
 
-# Run Install-Software once after machine log-on. See MS documentation on RegKey: https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys
-New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Devices" -Value ("cmd /c powershell.exe -ExecutionPolicy Bypass -File {0}\Setup-SCSDevice_IRM.ps1" -f $dir)
+# Run Setup-SCSDevice  once after machine log-on. See MS documentation on RegKey: https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Value ("cmd /c powershell.exe -ExecutionPolicy Bypass -File {0}\Setup-SCSDevice_IRM.ps1" -f $dir)
 
 # Import Start Menu
 # Define source and destination paths
@@ -47,8 +70,10 @@ reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Ad
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v SubscribedContent-338387Enabled /t REG_DWORD /d 0 /f | Out-Host
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v RotatingLockScreenOverlayEnabled /t REG_DWORD /d 0 /f | Out-Host
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarDa /t REG_DWORD /d 0 /f | Out-Host
-
-
+# Remove Edge Desktop icon
+reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v DisableEdgeDesktopShortcutCreation /t REG_DWORD /d 1 /f /reg:64 | Out-Host
+reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "CreateDesktopShortcutDefault" /t REG_DWORD /d 0 /f /reg:64 | Out-Host
+# Unload default profile
 reg.exe unload HKLM\TempUser | Out-Host
 
 ###################################
