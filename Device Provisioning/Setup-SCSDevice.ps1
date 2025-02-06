@@ -144,7 +144,7 @@ foreach ($package in $packages) {
             }
         }
 
-        $result = Start-Process @execute
+        $result = Start-Process @execute | Out-Host
 
         Write-Host "    ExitCode: $($result.ExitCode)"
 
