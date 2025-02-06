@@ -67,35 +67,20 @@ $ProgressPreference = $ProgressPreference_bk
 ########## Setttings #########
 ##############################
 
-# Enable location services so the time zone will be set automatically (even when skipping the privacy page in OOBE) when an administrator signs in
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Type "String" -Value "Allow" -Force
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Overrides\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}" -Name "SensorPermissionState" -Type "DWord" -Value 1 -Force
-Start-Service -Name "lfsvc" -ErrorAction SilentlyContinue
-
 # Set Power Settings
-Write-Host "Creating and setting power plan.."
+Write-Host "Setting power and screen lock settings.."
 
-# Create a new power plan based on the Balanced plan
-$balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
-$newPlanGuid = powercfg -duplicatescheme $balancedGuid
-# Rename the new plan
-powercfg -changename $newPlanGuid "SCS  Power Plan" "SCS Custom power plan"
-# Set the new plan as active
-powercfg -setactive $newPlanGuid
-# Set hard disk turn off time to 0 (never)
-powercfg -change -disk-timeout-ac 0
-powercfg -change -disk-timeout-dc 0
-# Set display turn off time (15 minutes on battery, 1 hour when plugged in)
-powercfg -change -monitor-timeout-dc 15
-powercfg -change -monitor-timeout-ac 60
-# Set sleep settings (never on both)
-powercfg -change -standby-timeout-dc 0
-powercfg -change -standby-timeout-ac 0
+# Set sleep settings (10 minutes on battery (dc), 15 minutes when plugged in (ac))
+powercfg /change -standby-timeout-dc 10
+powercfg /change -standby-timeout-ac 15
 # Set lid close action (sleep on battery, do nothing when plugged in)
-powercfg -setdcvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
-powercfg -setacvalueindex $newPlanGuid 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+powercfg /SETACVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
+# Ensure the computer requires a password on wakeup
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
+powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
 # Apply changes
-powercfg -setactive $newPlanGuid
+powercfg /setactive scheme_current
 
 Write-Host "Custom power plan created and activated with specified settings."
 
@@ -113,131 +98,100 @@ Write-Host "Running Windows Updates in a concurrent process..."
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
 Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
 
-###################################
-############# Debloat #############
-###################################
-Write-Host "Beginning Debloat Process..."
-$DebloatFolder = "C:\ProgramData\Debloat"
-If (Test-Path $DebloatFolder) {
-    Write-Output "$DebloatFolder exists. Skipping."
-}
-Else {
-    Write-Output "The folder '$DebloatFolder' doesn't exist. This folder will be used for storing logs created after the script runs. Creating now."
-    Start-Sleep 1
-    New-Item -Path "$DebloatFolder" -ItemType Directory
-    Write-Output "The folder $DebloatFolder was successfully created."
-}
-
-$templateFilePath = "C:\ProgramData\Debloat\removebloat.ps1"
-
-Invoke-WebRequest `
--Uri "https://raw.githubusercontent.com/andrew-s-taylor/public/main/De-Bloat/RemoveBloat.ps1" `
--OutFile $templateFilePath `
--UseBasicParsing `
--Headers @{"Cache-Control"="no-cache"}
-
-
-##Populate between the speechmarks any apps you want to whitelist, comma-separated
-$arguments = ' -customwhitelist ""'
-
-
-invoke-expression -Command "$templateFilePath $arguments"
-
 ## Set other settings ##
-
+<#
 #Get all SIDS to remove at user-level if needed
 $UserSIDs = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList" | Select-Object -ExpandProperty PSChildName
 function Set-Regkey {
     # Requires the full path of the registry key to set
     [CmdletBinding()]
     param(
-      [Parameter(Mandatory=$true)]
-      [string] $FullPath,
-      
-      [Parameter(Mandatory=$true)]
-      [string] $value
-    )
-
-    #Extract key from full path
-    $key = Split-Path -Leaf $FullPath
-    $path = Split-Path $FullPath
-    try {
-        Write-Output "`nAttempting to set $path\$key to $value..."
-        If (!(Test-Path $path)) {
-            New-Item $path
-        }
-        If (Test-Path $path) {
-            Set-ItemProperty $path $key -Value $value
-        }
+        [Parameter(Mandatory=$true)]
+        [string] $FullPath,
+        
+        [Parameter(Mandatory=$true)]
+        [string] $value
+        )
+        
+        #Extract key from full path
+        $key = Split-Path -Leaf $FullPath
+        $path = Split-Path $FullPath
+        try {
+            Write-Output "`nAttempting to set $path\$key to $value..."
+            If (!(Test-Path $path)) {
+                New-Item $path
+            }
+            If (Test-Path $path) {
+                Set-ItemProperty $path $key -Value $value
+            }
         Write-Output "Successfully set $path\$key to $value"
         #Do the same for all users
         if ($path.StartsWith("HKCU")) {
-
-            $path = $path -replace "^HKCU:", ""
-            foreach ($sid in $UserSIDs) {
-                $userPath = "Registry::HKU\"+$sid+$path
-                If (!(Test-Path $userPath)) {
-                    New-Item $userPath
-                } Else {
+            
+        $path = $path -replace "^HKCU:", ""
+        foreach ($sid in $UserSIDs) {
+            $userPath = "Registry::HKU\"+$sid+$path
+            If (!(Test-Path $userPath)) {
+                New-Item $userPath
+            } Else {
                 Set-ItemProperty $userPath $key -Value $value
-                }
             }
-            Write-Output "Successfully set $userPath\$key to $value for all users"
         }
-    } catch {
-        Write-Warning "`nThere was an issue writing $path\$key"
-        Write-Warning $_
+        Write-Output "Successfully set $userPath\$key to $value for all users"
     }
+} catch {
+    Write-Warning "`nThere was an issue writing $path\$key"
+    Write-Warning $_
+}
 }
 function Remove-Regkey {
     [CmdletBinding()]
     param(
-      [Parameter(Mandatory=$true)]
-      [string] $path
-    )
-    try {
-        Write-Output "`nAttempting to remove $path"
-        If (Test-Path $path) {
-           Remove-Item $path -Recurse
-           Write-Output "Removed $path and its child items"
-        } else {
-            Write-Output "No path found at $path"
+        [Parameter(Mandatory=$true)]
+        [string] $path
+        )
+        try {
+            Write-Output "`nAttempting to remove $path"
+            If (Test-Path $path) {
+                Remove-Item $path -Recurse
+                Write-Output "Removed $path and its child items"
+            } else {
+                Write-Output "No path found at $path"
+            }
+        } catch {
+            Write-Warning "`nThere was an issue removing"
+            Write-Warning $_
         }
-    } catch {
-        Write-Warning "`nThere was an issue removing"
-        Write-Warning $_
     }
-}
-function Restart-Explorer {
-    Write-Output "> Restarting windows explorer to apply all changes."
-
-    Start-Sleep 0.5
-
-    taskkill /f /im explorer.exe
-
-    Start-Process explorer.exe
-
-    Write-Output ""
-}
-
-$RegkeysToSet = @{
-    #Disable Bing from Search bar
-    "HKLM:\Software\Policies\Microsoft\Windows\Explorer\DisableSearchBoxSuggestions" = 00000001
-    #Remove chat from taskbar
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarMn" = 00000000
-    #Tailored experiences with diagnostic data for Current User
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy\TailoredExperiencesWithDiagnosticDataEnabled" = 00000000
-    #Disable Lockscreen tips
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\SubscribedContent-338387Enabled" = 00000000
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\RotatingLockScreenOverlayEnabled" = 00000000
-    #Disable Improving Inking and Typing Recognition
+    function Restart-Explorer {
+        Write-Output "> Restarting windows explorer to apply all changes."
+        
+        Start-Sleep 0.5
+        
+        taskkill /f /im explorer.exe
+        
+        Start-Process explorer.exe
+        
+        Write-Output ""
+    }
+    
+    $RegkeysToSet = @{
+        #Disable Bing from Search bar
+        "HKLM:\Software\Policies\Microsoft\Windows\Explorer\DisableSearchBoxSuggestions" = 00000001
+        #Remove chat from taskbar
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarMn" = 00000000
+        #Tailored experiences with diagnostic data for Current User
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy\TailoredExperiencesWithDiagnosticDataEnabled" = 00000000
+        #Disable Lockscreen tips
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\SubscribedContent-338387Enabled" = 00000000
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager\RotatingLockScreenOverlayEnabled" = 00000000
+        #Disable Improving Inking and Typing Recognition
     "HKCU:\Software\Microsoft\Input\TIPC\Enabled" = 00000000
     #Disable Widgets on Taskbar
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDa" = 00000000
     #Disable Widgets Service
     "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\NewsAndInterests\AllowNewsAndInterests\value" = 00000000
     "HKLM:\SOFTWARE\Policies\Microsoft\Dsh\AllowNewsAndInterests" = 00000000
-
 }
 
 $RegkeysToRemove = @(
@@ -250,36 +204,38 @@ $RegkeysToRemove = @(
     #"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace_36354489\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}"
     #Hide duplicate drives from Flie Explorer
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}"
-)
+    )
+    
+    ForEach ($Path in $RegkeysToSet.Keys){
+        Set-Regkey -FullPath $Path -value $RegkeysToSet[$Path]
+    }
+    
+    ForEach($Path in $RegkeysToRemove){
+        Remove-Regkey -path $Path
+    }
+    
+    #Restart explorer to apply changes
+    Restart-Explorer
+    
+    #Remove anything left over
+    Get-AppxPackage -AllUsers *mirkat* | Remove-AppxPackage -AllUsers
+    Get-AppxPackage -AllUsers *mcafee* | Remove-AppxPackage -AllUsers
+    Get-AppxPackage -AllUsers *teams* | Remove-AppxPackage -AllUsers
+    Get-AppxPackage -AllUsers *alexa* | Remove-AppxPackage -AllUsers
+    
+    Write-Host "Debloat Complete`n" -ForegroundColor Green
+    
+#>
 
-ForEach ($Path in $RegkeysToSet.Keys){
-    Set-Regkey -FullPath $Path -value $RegkeysToSet[$Path]
-}
-
-ForEach($Path in $RegkeysToRemove){
-    Remove-Regkey -path $Path
-}
-
-#Restart explorer to apply changes
-Restart-Explorer
-
-#Remove anything left over
-Get-AppxPackage -AllUsers *mirkat* | Remove-AppxPackage -AllUsers
-Get-AppxPackage -AllUsers *mcafee* | Remove-AppxPackage -AllUsers
-Get-AppxPackage -AllUsers *teams* | Remove-AppxPackage -AllUsers
-Get-AppxPackage -AllUsers *alexa* | Remove-AppxPackage -AllUsers
-
-Write-Host "Debloat Complete`n" -ForegroundColor Green
-
-###################################
-######## Install Packages #########
-###################################
-
-Write-Host "Installing Packages...`n" -ForegroundColor Yellow
-
-foreach ($package in $packages) {
-    switch ($package.Type) {
-        "Machine" {
+    ###################################
+    ######## Install Packages #########
+    ###################################
+    
+    Write-Host "Installing Packages...`n" -ForegroundColor Yellow
+    
+    foreach ($package in $packages) {
+        switch ($package.Type) {
+            "Machine" {
             Write-Host "Executing $($package.Name)"
 
             if($package.exe -Like "*.msi"){
