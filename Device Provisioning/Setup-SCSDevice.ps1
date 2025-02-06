@@ -40,7 +40,7 @@ $packages =
     Exe          = "GoogleDriveSetup.exe"
     Type         = "Machine"
     SilentSwitch = "--silent --desktop_shortcut --skip_launch_new"
-},
+}<#,
 [PSCustomObject]@{
     Name         = "GCPW"
     Exe          = "SAFETYCHAIN_gcpwstandaloneenterprise64.exe"
@@ -52,7 +52,7 @@ $packages =
     Exe          = "epskit_x64.exe"
     Type         = "Machine"
     SilentSwitch = "/bdparams /silent"
-}
+}#>
 
 #Start Encryption
 Write-Host "Starting BitLocker on $env:SystemDrive...`n"

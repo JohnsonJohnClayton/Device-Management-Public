@@ -107,4 +107,13 @@ invoke-expression -Command "$templateFilePath $arguments"
 # Attempt to remove McAfee
 Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()}
 
+####################################
+############# Installs #############
+####################################
+
+Write-Host "Attempting BitDefender Install.."
+Start-Process -FilePath "$dir\epskit_x64.exe" -ArgumentList '/bdparams /silent' | Out-Host
+Write-Host "Attempting GCPW Install.."
+Start-Process -FilePath "$dir\SAFETYCHAIN_gcpwstandaloneenterprise64.exe" -ArgumentList '/silent /install' | Out-Host
+
 Stop-Transcript
