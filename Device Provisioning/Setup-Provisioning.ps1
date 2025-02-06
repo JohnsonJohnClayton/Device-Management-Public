@@ -100,8 +100,11 @@ Invoke-WebRequest `
 -Headers @{"Cache-Control"="no-cache"}
 
 
-##Populate between the speechmarks any apps you want to whitelist, comma-separated
+# Populate between the speechmarks any apps you want to whitelist, comma-separated
 $arguments = ' -customwhitelist ""'
 invoke-expression -Command "$templateFilePath $arguments"
+
+# Attempt to remove McAfee
+Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()}
 
 Stop-Transcript
