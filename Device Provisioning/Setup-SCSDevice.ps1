@@ -107,14 +107,6 @@ powercfg /setactive scheme_current
 Write-Host "Custom power plan created and activated with specified settings."
 
 ###################################
-########## Windows Update #########
-###################################
-$UpdateScript = "$dir\Run-Updates.ps1"
-Write-Host "Running Windows Updates in a concurrent process..."
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
-Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
-
-###################################
 ######## Install Packages #########
 ###################################
 
@@ -182,22 +174,53 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
     Copy-Item $_.FullName -Destination $destinationFolder -Force
 }
 
+####################################
+############# Stage 2 ##############
+####################################
 
+# Schedule BitDefender Install
+#   -The endpoint needs to be rebooted in order to ensure that McAfee is uninstalled
+#   -Updates applied afterwards
+# Create Stage 2 script
+$stage2Content = @"
+# Start logging
+$dir = "$($env:ProgramData)\ZenGuard"
+Start-Transcript -Path "$dir\DeviceSetupLog.txt"
+
+# Install BitDefender
 Write-Host "Attempting BitDefender Install.."
-Start-Process -FilePath "$dir\epskit_x64.exe" -ArgumentList '/bdparams /silent' | Out-Host
+Start-Process -FilePath "$dir\epskit_x64.exe" -ArgumentList '/bdparams /silent' -Wait | Out-Host
 
-#####################################
-######## Run BitDefender Scan #########
-#####################################
+# Run BitDefender Scan
 Write-Host "Running BitDefender Scan.."
-& 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom
+& 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
 
-###################################
-############# Reboot ##############
-###################################
+# Remove the scheduled task
+Unregister-ScheduledTask -TaskName "ProvisioningStage2" -Confirm:$false | Out-Host
 
-Write-Host "Provisioining Complete!`n" -ForegroundColor Green
-Write-Host "Rebooting in 5 minutes to apply updates..." -ForegroundColor Yellow
-Write-Host "-Press CTRL+C to cancel-"
-Start-Sleep -seconds 300; Restart-Computer -Force
+# Run Windows Updates
+$UpdateScript = "$dir\Run-Updates.ps1"
+Write-Host "Running Windows Updates in a concurrent process..."
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
+Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
+
+# Remove this script file
+Remove-Item -Path `$PSCommandPath -Force
+
+Write-Host "Provisioining complete!`n" -ForegroundColor Green
+Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
+Read-Host "Press any button to close this window.."
+
+Stop-Transcript
+"@
+$stage2Path = "$dir\Stage2Script.ps1"
+Set-Content -Path $stage2Path -Value $stage2Content
+# Schedule Stage 2
+$action = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-ExecutionPolicy Bypass -File `"$stage2Path`""
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+Register-ScheduledTask -TaskName "ProvisioningStage2" -Action $action -Trigger $trigger -RunLevel Highest -Force
+
+# Force reboot
+Write-Host "Rebooting to continue provisoing..." -ForegroundColor Yellow
+Restart-Computer -Force
 Stop-Transcript
