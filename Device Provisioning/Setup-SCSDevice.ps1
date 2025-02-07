@@ -183,6 +183,9 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
 }
 
 
+Write-Host "Attempting BitDefender Install.."
+Start-Process -FilePath "$dir\epskit_x64.exe" -ArgumentList '/bdparams /silent' | Out-Host
+
 #####################################
 ######## Run BitDefender Scan #########
 #####################################
