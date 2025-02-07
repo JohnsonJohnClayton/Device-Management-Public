@@ -31,7 +31,7 @@ $updates = Get-WindowsUpdate
 
 # Install Windows updates if any are available
 if ($null -ne $updates) {
-    Install-WindowsUpdate -AcceptAll -Install -IgnoreReboot | 
+    Install-WindowsUpdate -AcceptAll -Install -AutoReboot | 
     Select-Object KB, Result, Title, Size  # Select specific properties to display
 }
 
