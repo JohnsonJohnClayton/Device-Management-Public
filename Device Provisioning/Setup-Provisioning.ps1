@@ -114,4 +114,7 @@ Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | F
 Write-Host "Attempting GCPW Install.."
 Start-Process -FilePath "$dir\SAFETYCHAIN_gcpwstandaloneenterprise64.exe" -ArgumentList '/silent /install' | Out-Host
 
+Write-Host "Rebooting the PC..."
+shutdown.exe /r /t 0
+
 Stop-Transcript
