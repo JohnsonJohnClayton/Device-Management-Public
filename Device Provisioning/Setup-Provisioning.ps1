@@ -20,7 +20,6 @@
     Log file: $env:ProgramData\ZenGuard\OOBE_DeviceSetupLog.txt
 #>
 
-
 # Start Log
 $dir = "$($env:ProgramData)\ZenGuard"
 Start-Transcript -Path "$dir\OOBE_DeviceSetupLog.txt"
@@ -38,7 +37,7 @@ New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
 
 # Import Start Menu
 # Define source and destination paths
-$sourceFile = ".\start2.bin"
+$sourceFile = "$dir\start2.bin"
 $destinationDirectory = "$env:SystemDrive\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\"
 $destinationFile = Join-Path -Path $destinationDirectory -ChildPath "start2.bin"
 

@@ -184,16 +184,47 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
 # Create Stage 2 script
 $stage2Content = @"
 # Start logging
-$dir = "$($env:ProgramData)\ZenGuard"
+$dir = "C:\ProgramData\ZenGuard"
 Start-Transcript -Path "$dir\DeviceSetupLog.txt" -Append
 
 Write-Host "Beginning Stage 2 of Provisioning...`n" -ForegroundColor Green
 
-# Run Windows Updates
-$UpdateScript="$dir\Run-Updates.ps1"
-Write-Host "Running Windows Updates in a concurrent process..."
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
-Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
+# Start Windows Updates
+Write-Host "Running Windows Updates in the background..."
+Start-Job -ScriptBlock {
+   # Setup Windows Update
+    # Check if NuGet package provider is available
+    Write-Host "Installing NuGet..."
+    $nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue
+
+    # Install NuGet package provider if not found
+    if ($null -eq $nuget) {
+        Install-PackageProvider -Name NuGet -Confirm:$false -Force
+    }
+
+    # Check if the PSWindowsUpdate module is available
+    $module = Get-Module 'PSWindowsUpdate' -ListAvailable
+
+    # Install PSWindowsUpdate module if not found
+    if ($null -eq $module) {
+        Write-Host "Installing PSWindowsUpdate module..."
+        Install-Module PSWindowsUpdate -Confirm:$false -Force
+    }
+
+    # Retrieve available Windows updates
+    $updates = Get-WindowsUpdate 
+
+    # Install Windows updates if any are available
+    if ($null -ne $updates) {
+        Install-WindowsUpdate -AcceptAll -Install -AutoReboot | 
+        Select-Object KB, Result, Title, Size  # Select specific properties to display
+    }
+
+    # Check if a reboot is required after updates are installed
+    $status = Get-WURebootStatus -Silent
+
+    Write-Host "`nWindows Updates Complete`n" -ForegroundColor Green
+}
 
 # Install BitDefender
 Write-Host "Attempting BitDefender Install.."
@@ -208,8 +239,11 @@ Start-Job -ScriptBlock {
 # Remove the scheduled task
 Unregister-ScheduledTask -TaskName "ProvisioningStage2" -Confirm:$false
 
-# Remove this script file
-Remove-Item -Path $dir\Stage2Script.ps1 -Force
+# Remove the run once regkey
+Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Force
+
+# Remove the script files
+Get-ChildItem -Path $dir -Filter "*.ps1" -File | Remove-Item -Force
 
 Write-Host "Provisioining complete!`n" -ForegroundColor Green
 Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
