@@ -26,7 +26,7 @@
 
 $dir = "$($env:ProgramData)\ZenGuard"
 
-Start-Transcript -Path "$dir\DeviceSetupLog.txt"
+Start-Transcript -Path "$dir\DeviceSetupLog.txt" -Append
 
 $packages =
 [PSCustomObject]@{
@@ -185,27 +185,31 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
 $stage2Content = @"
 # Start logging
 $dir = "$($env:ProgramData)\ZenGuard"
-Start-Transcript -Path "$dir\DeviceSetupLog.txt"
+Start-Transcript -Path "$dir\DeviceSetupLog.txt" -Append
+
+Write-Host "Beginning Stage 2 of Provisioning...`n" -ForegroundColor Green
+
+# Run Windows Updates
+$UpdateScript="$dir\Run-Updates.ps1"
+Write-Host "Running Windows Updates in a concurrent process..."
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
+Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
 
 # Install BitDefender
 Write-Host "Attempting BitDefender Install.."
 Start-Process -FilePath "$dir\epskit_x64.exe" -ArgumentList '/bdparams /silent' -Wait | Out-Host
 
 # Run BitDefender Scan
-Write-Host "Running BitDefender Scan.."
-& 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
+Write-Host "Running BitDefender scan job in the background..."
+Start-Job -ScriptBlock {
+    & 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
+}
 
 # Remove the scheduled task
-Unregister-ScheduledTask -TaskName "ProvisioningStage2" -Confirm:$false | Out-Host
-
-# Run Windows Updates
-$UpdateScript = "$dir\Run-Updates.ps1"
-Write-Host "Running Windows Updates in a concurrent process..."
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile $UpdateScript -UseBasicParsing 
-Start-Process "powershell.exe" -ArgumentList '-File', $UpdateScript
+Unregister-ScheduledTask -TaskName "ProvisioningStage2" -Confirm:$false
 
 # Remove this script file
-Remove-Item -Path `$PSCommandPath -Force
+Remove-Item -Path $dir\Stage2Script.ps1 -Force
 
 Write-Host "Provisioining complete!`n" -ForegroundColor Green
 Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
