@@ -85,26 +85,10 @@ do {
 # Restore the original progress preference
 $ProgressPreference = $ProgressPreference_bk
 
-##############################
-########## Setttings #########
-##############################
-
-# Set Power Settings
-Write-Host "Setting power and screen lock settings.."
-
-# Set sleep settings (10 minutes on battery (dc), 15 minutes when plugged in (ac))
-powercfg /change -standby-timeout-dc 10
-powercfg /change -standby-timeout-ac 15
-# Set lid close action (sleep on battery, do nothing when plugged in)
-powercfg /SETDCVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
-powercfg /SETACVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
-# Ensure the computer requires a password on wakeup
-powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
-powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
-# Apply changes
-powercfg /setactive scheme_current
-
-Write-Host "Custom power plan created and activated with specified settings."
+# Double-Check if McAfee needs to be uninstalled
+Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()} | Out-Host
+Get-AppxPackage -AllUsers *mcafee* | Remove-AppPackage -AllUsers
+Get-AppxProvisionedPackage -Online | Where-Object {$_.PackageName -like "*McAfee*"} | ForEach-Object { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -AllUsers }
 
 ###################################
 ######## Install Packages #########
@@ -174,6 +158,27 @@ Get-ChildItem -Path $sourceFolder -Filter "Google*" | ForEach-Object {
     Copy-Item $_.FullName -Destination $destinationFolder -Force
 }
 
+##############################
+########## Setttings #########
+##############################
+
+# Set Power Settings
+Write-Host "Setting power and screen lock settings.."
+
+# Set sleep settings (10 minutes on battery (dc), 15 minutes when plugged in (ac))
+powercfg /change -standby-timeout-dc 10
+powercfg /change -standby-timeout-ac 15
+# Set lid close action (sleep on battery, do nothing when plugged in)
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+powercfg /SETACVALUEINDEX SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 1
+# Ensure the computer requires a password on wakeup
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
+powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_NONE CONSOLELOCK 1
+# Apply changes
+powercfg /setactive scheme_current
+
+Write-Host "Custom power plan created and activated with specified settings."
+
 ####################################
 ############# Stage 2 ##############
 ####################################
@@ -208,7 +213,7 @@ Start-Job -ScriptBlock {
     # Install PSWindowsUpdate module if not found
     if ($null -eq $module) {
         Write-Host "Installing PSWindowsUpdate module..."
-        Install-Module PSWindowsUpdate -Confirm:$false -Force
+        Install-Module PSWindowsUpdate -Confirm:$($false) -Force
     }
 
     # Retrieve available Windows updates
