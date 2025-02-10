@@ -182,52 +182,6 @@ Write-Host "Custom power plan created and activated with specified settings."
 # Start automatic time zone
 # Start-Service -Name "lfsvc" -ErrorAction SilentlyContinue
 
-# Setup Windows Update
-# Check if NuGet package provider is available
-Write-Host "Installing NuGet..."
-$nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue
-
-# Install NuGet package provider if not found
-if ($null -eq $nuget) {
-    Install-PackageProvider -Name NuGet -Confirm:$false -Force
-}
-
-# Check if the PSWindowsUpdate module is available
-$module = Get-Module 'PSWindowsUpdate' -ListAvailable
-
-# Install PSWindowsUpdate module if not found
-if ($null -eq $module) {
-    Write-Host "Installing PSWindowsUpdate module..."
-    Install-Module PSWindowsUpdate -Confirm:$($false) -Force
-}
-
-# Start Windows Updates
-Write-Host "Running Windows Updates in the background..."
-Start-Job -ScriptBlock {
-    # Setup Windows Update
-    # Check if NuGet package provider is available
-    Write-Host "Installing NuGet..."
-    $nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue | Out-Host
-
-    # Install NuGet package provider if not found
-    if ($null -eq $nuget) {
-        Install-PackageProvider -Name NuGet -Confirm:$false -Force | Out-Host
-    }
-
-    # Check if the PSWindowsUpdate module is available
-    $module = Get-Module 'PSWindowsUpdate' -ListAvailable
-
-    # Install PSWindowsUpdate module if not found
-    if ($null -eq $module) {
-        Write-Host "Installing PSWindowsUpdate module..."
-        Install-Module PSWindowsUpdate -Confirm:$($false) -Force | Out-Host
-    }
-
-    # Retrieve available Windows updates
-    Install-WindowsUpdate -AcceptAll -Install -AutoReboot | Out-Host
-    # Check if a reboot is required after updates are installed
-    Write-Host "`nWindows Updates Complete`n" -ForegroundColor Green
-}
 
 ###################################
 ############# Debloat #############
@@ -267,38 +221,50 @@ Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | F
 # Schedule BitDefender Install
 #   -The endpoint needs to be rebooted in order to ensure that McAfee is uninstalled
 #   -Updates applied afterwards
-# Create Stage 2 script
+# Create Stage 2 script & complete provisoining
 $stage2Content = @"
-# Start logging
-Start-Transcript -Path "C:\ProgramData\ZenGuard\DeviceSetupLog.txt" -Append
+    # Start logging
+    Start-Transcript -Path "C:\ProgramData\ZenGuard\DeviceSetupLog.txt" -Append
 
-Write-Host "Beginning Stage 2 of Provisioning...`n" -ForegroundColor Green
+    Write-Host "Beginning Stage 2 of Provisioning...`n" -ForegroundColor Green
 
-# Install BitDefender
-Write-Host "Attempting BitDefender Install.."
-Start-Process -FilePath "C:\ProgramData\ZenGuard\epskit_x64.exe" -ArgumentList '/bdparams /silent' -Wait | Out-Host
+    # Install BitDefender
+    Write-Host "Attempting BitDefender Install.."
+    Start-Process -FilePath "C:\ProgramData\ZenGuard\epskit_x64.exe" -ArgumentList '/bdparams /silent' -Wait | Out-Host
 
-# Run BitDefender Scan
-Write-Host "Running BitDefender scan job in the background..."
-Start-Job -ScriptBlock {
-    & 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
-}
+    # Run BitDefender Scan
+    Write-Host "Running BitDefender scan job in the background..."
+    Start-Job -ScriptBlock {
+        & 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
+    }
 
-# Remove the scheduled task
-Get-ScheduledTask -TaskName "ProvisioningStage2" | Unregister-ScheduledTask -Confirm:$false
+    # Run Windows Updates
+    Write-Host "Running Windows Updates in a concurrent process..."
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/John-ZenGuard/Device-Management-Public/refs/heads/main/Device%20Provisioning/Start-WindowsUpdates.ps1" -OutFile C:\ProgramData\ZenGuard\Run-Updates.ps1 -UseBasicParsing 
+    Start-Process "powershell.exe" -ArgumentList '-File', C:\ProgramData\ZenGuard\Run-Updates.ps1
+        
 
-# Remove the run once regkey
-Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Force
+    try {
+        # Remove the script files
+        Write-Host "Cleaning up scripts..."
+        Get-ChildItem -Path C:\ProgramData\ZenGuard -Filter "*.ps1" -File | Remove-Item -Force
+        # Remove the run once regkey
+        Write-Host "Removing Schduled task.."
+        Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Force
+        schtasks /Delete /TN "ProvisioningStage2" /F
+        Write-Host "Successfully removed." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Cleanup Completed with some errors." -ForegroundColor Yellow
+    }
 
-# Remove the script files
-Get-ChildItem -Path C:\ProgramData\ZenGuard -Filter "*.ps1" -File | Remove-Item -Force
+    Write-Host "Provisioining complete!`n" -ForegroundColor Green
+    Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
+    Read-Host "Press any button to close this window.."
 
-Write-Host "Provisioining complete!`n" -ForegroundColor Green
-Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
-Read-Host "Press any button to close this window.."
-
-Stop-Transcript
+    Stop-Transcript
 "@
+
 $stage2Path = "$dir\Stage2Script.ps1"
 Set-Content -Path $stage2Path -Value $stage2Content
 # Schedule Stage 2
