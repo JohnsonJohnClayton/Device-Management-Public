@@ -70,9 +70,10 @@ reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Ad
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v SubscribedContent-338387Enabled /t REG_DWORD /d 0 /f | Out-Host
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v RotatingLockScreenOverlayEnabled /t REG_DWORD /d 0 /f | Out-Host
 reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarDa /t REG_DWORD /d 0 /f | Out-Host
-# Remove Edge Desktop icon
-reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v DisableEdgeDesktopShortcutCreation /t REG_DWORD /d 1 /f /reg:64 | Out-Host
-reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "CreateDesktopShortcutDefault" /t REG_DWORD /d 0 /f /reg:64 | Out-Host
+# Enable location services for desktop apps
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Value "Allow"
+# Enable automatic time zone updates
+New-ItemProperty -Path "HKCU:\Control Panel\TimeDate" -Name "AutoTimeZoneUpdate" -PropertyType DWord -Value 1
 # Unload default profile
 reg.exe unload HKLM\TempUser | Out-Host
 
