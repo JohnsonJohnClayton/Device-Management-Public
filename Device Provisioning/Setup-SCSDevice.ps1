@@ -228,42 +228,54 @@ Start-Transcript -Path "$dir\DeviceSetupLog.txt" -Append
 
 Write-Host "Beginning Stage 2 of Provisioning...`n" -ForegroundColor Green
 
-# Start Windows Updates
 Write-Host "Running Windows Updates in the background..."
-Start-Job -ScriptBlock {
-   # Setup Windows Update
-    # Check if NuGet package provider is available
-    Write-Host "Installing NuGet..."
-    $nuget = Get-PackageProvider 'NuGet' -ListAvailable -ErrorAction SilentlyContinue
+$job = Start-Job -ScriptBlock {
+    # Setup Windows Update
+    try {
+        # Install NuGet package provider if not found
+        if (!(Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -Confirm:$false -Force
+        }
 
-    # Install NuGet package provider if not found
-    if ($null -eq $nuget) {
-        Install-PackageProvider -Name NuGet -Confirm:$false -Force
+        # Install and import PSWindowsUpdate module
+        if (!(Get-Module -Name PSWindowsUpdate -ListAvailable)) {
+            Install-Module PSWindowsUpdate -Confirm:$false -Force
+        }
+        Import-Module PSWindowsUpdate
+
+        # Retrieve and install Windows updates
+        $updates = Get-WindowsUpdate
+        if ($updates) {
+            Install-WindowsUpdate -AcceptAll -Install -AutoReboot | 
+            Select-Object KB, Result, Title, Size
+        } else {
+            Write-Output "No updates available."
+        }
+
+        # Check if reboot is required
+        $rebootStatus = Get-WURebootStatus -Silent
+        if ($rebootStatus) {
+            Write-Output "Reboot is required after updates."
+        }
+
+        Write-Output "Windows Updates process completed."
     }
-
-    # Check if the PSWindowsUpdate module is available
-    $module = Get-Module 'PSWindowsUpdate' -ListAvailable
-
-    # Install PSWindowsUpdate module if not found
-    if ($null -eq $module) {
-        Write-Host "Installing PSWindowsUpdate module..."
-        Install-Module PSWindowsUpdate -Confirm:$($false) -Force
+    catch {
+        Write-Error "An error occurred: $_"
     }
-
-    # Retrieve available Windows updates
-    $updates = Get-WindowsUpdate 
-
-    # Install Windows updates if any are available
-    if ($null -ne $updates) {
-        Install-WindowsUpdate -AcceptAll -Install -AutoReboot | 
-        Select-Object KB, Result, Title, Size  # Select specific properties to display
-    }
-
-    # Check if a reboot is required after updates are installed
-    $status = Get-WURebootStatus -Silent
-
-    Write-Host "`nWindows Updates Complete`n" -ForegroundColor Green
 }
+
+# Monitor job progress
+while ($job.State -eq 'Running') {
+    Write-Host "Update job is still running... Please wait."
+    Start-Sleep -Seconds 30
+}
+
+# Retrieve and display job output
+Receive-Job -Job $job
+Remove-Job -Job $job
+
+Write-Host "Windows Updates process finished." -ForegroundColor Green
 
 # Install BitDefender
 Write-Host "Attempting BitDefender Install.."
