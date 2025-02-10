@@ -179,6 +179,40 @@ powercfg /setactive scheme_current
 
 Write-Host "Custom power plan created and activated with specified settings."
 
+# Start automatic time zone
+# Start-Service -Name "lfsvc" -ErrorAction SilentlyContinue
+
+###################################
+############# Debloat #############
+###################################
+Write-Host "Beginning Debloat Process..."
+$DebloatFolder = "C:\ProgramData\Debloat"
+If (Test-Path $DebloatFolder) {
+    Write-Output "$DebloatFolder exists. Skipping."
+}
+Else {
+    Write-Output "The folder '$DebloatFolder' doesn't exist. This folder will be used for storing logs created after the script runs. Creating now."
+    Start-Sleep 1
+    New-Item -Path "$DebloatFolder" -ItemType Directory
+    Write-Output "The folder $DebloatFolder was successfully created."
+}
+
+$templateFilePath = "C:\ProgramData\Debloat\removebloat.ps1"
+
+Invoke-WebRequest `
+-Uri "https://raw.githubusercontent.com/andrew-s-taylor/public/main/De-Bloat/RemoveBloat.ps1" `
+-OutFile $templateFilePath `
+-UseBasicParsing `
+-Headers @{"Cache-Control"="no-cache"}
+
+
+# Populate between the speechmarks any apps you want to whitelist, comma-separated
+$arguments = ' -customwhitelist ""'
+invoke-expression -Command "$templateFilePath $arguments"
+
+# Attempt to remove McAfee
+Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()}
+
 ####################################
 ############# Stage 2 ##############
 ####################################
