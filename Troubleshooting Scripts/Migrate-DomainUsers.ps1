@@ -6,6 +6,8 @@
     It checks the list of users against and exception list that will not perform the task if those usernames are present in the list.
     Users without a license or with sign-in blocked will also be excluded.
 .NOTES
+    This logic is now depreciated as the modules used are no longer supported.
+    Need to translate to MS Graph
     Author: John Johnson
     Date: 09/23/2024
     Requires: PowerShell 4.0 or later
@@ -14,21 +16,7 @@
 #>
 
 $excludedUPNS = @(
-    "admin@victorydevelopment01.onmicrosoft.com"
-    # Waiting on confirmation from Ampio (Sharepoint Vendor):
-    "asmigrationadmin@victorydevelopment01.onmicrosoft.com"
-    "_svc_PowerPlatform@victorydevelopment.com"
 
-    # Deprecated/UPN Change not needed:
-    "VRED-Main@victorydevelopment.com"
-    "vredmain@victorydevelopment01.onmicrosoft.com"
-    "Vred-main@victorydevelopment01.onmicrosoft.com"
-    "buildinginvoices@victorydevelopment.com"
-    "cattlemen@victorydevelopment.com"
-    "VOIPauto@victorydevelopment01.onmicrosoft.com"
-    "sharpcon@victorydevelopment.com"
-    "nemigadmin@victorydevelopment01.onmicrosoft.com"
-    "TenantServicePrincipal@victorydevelopment01.onmicrosoft.com"
 )
 
 # Import needed modules if available, if not then install them
