@@ -48,7 +48,7 @@ function Write-Log {
 #endregion
 
 #region Winget Detection and Installation
-function Ensure-Winget {
+function Test-Winget {
     Write-Log "Checking if 'winget' command exists"
 
     # Check if Winget is a valid command using Get-Command
@@ -92,7 +92,7 @@ try {
     Write-Log "### Starting Winget deployment for package ID: '$ID' ###"
 
     # Ensure Winget is installed and functional
-    Ensure-Winget
+    Test-Winget
 
     # Install the specified package using Winget
     Write-Log "Installing package ID: '$ID' with Winget..."
