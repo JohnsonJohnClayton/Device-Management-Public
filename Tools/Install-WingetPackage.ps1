@@ -13,11 +13,12 @@
     This parameter is mandatory and specifies the unique identifier for the package to be installed.
 
 .NOTES
-    Version: 1.1
+    Version: 1.2
     Author: John Johnson
-    Creation Date: 2025-03-31
-    Modified Date: 2025-03-31
+    Creation Date: 03-31-2025
+    Modified Date: 04-02-2025
 #>
+
 param(
     [Parameter(Mandatory=$true)]
     [string]$ID
@@ -46,75 +47,68 @@ function Write-Log {
 }
 #endregion
 
-#region Winget Path Detection
-function Get-WingetPath {
-    # Check system-wide installation first
-    $systemPaths = @(
-        "${env:ProgramFiles}\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe",
-        "${env:ProgramFiles}\WindowsApps\Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe",
-        "${env:ProgramFiles(x86)}\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe",
-        "${env:ProgramFiles(x86)}\WindowsApps\Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe"
-    )
+#region Winget Detection and Installation
+function Ensure-Winget {
+    Write-Log "Checking if 'winget' command exists"
 
-    foreach ($path in $systemPaths) {
-        $wingetExe = Get-ChildItem $path -Filter winget.exe -Recurse -ErrorAction SilentlyContinue |
-                     Select-Object -First 1 -ExpandProperty FullName
-        if ($wingetExe) {
-            return $wingetExe
-        }
-    }
+    # Check if Winget is a valid command using Get-Command
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Log "'winget' command detected"
+        return $true
+    } else {
+        Write-Log "'winget' command not found. Installing Winget..."
 
-    throw "Winget not found in system locations"
-}
-#endregion
+        # Install Microsoft.VCLibs dependency (required for Winget)
+        Write-Log "Installing Microsoft.VCLibs dependency..."
+        Invoke-WebRequest -Uri "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" -OutFile "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -UseBasicParsing
+        Add-AppxPackage -Path "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -ErrorAction Stop
 
-try {
-    Write-Log "### Starting Winget deployment for package $ID ###"
-
-    #region Winget Installation Check
-    Write-Log "Checking Winget installation"
-    $wingetPath = Get-WingetPath
-    Write-Log "Resolved Winget path: $wingetPath"
-
-    if (Test-Path $wingetPath) {
-        $wingetVersion = & $wingetPath --version
-        Write-Log "Winget $wingetVersion detected"
-    }
-    else {
-        Write-Log "Winget not found, initiating installation"
-        
-        # Install Microsoft.VCLibs dependency
-        Add-AppxPackage -Path "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" -ErrorAction Stop
-        
-        # Install Winget from Microsoft Desktop App Installer
+        # Install Winget from Microsoft Desktop App Installer bundle
+        Write-Log "Downloading and installing Winget..."
         $wingetBundle = "https://aka.ms/getwinget"
         $installerPath = "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
         
         Invoke-WebRequest -Uri $wingetBundle -OutFile $installerPath -UseBasicParsing
         Add-AppxPackage -Path $installerPath -ErrorAction Stop
         
-        $wingetPath = Get-WingetPath
-        Write-Log "Winget successfully installed at: $wingetPath"
-    }
-    #endregion
+        # Cleanup temporary files
+        Remove-Item "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -Force
+        Remove-Item $installerPath -Force
 
-    #region Package Installation
-    Write-Log "### Starting installation of package $ID ###"
-    $installResult = & $wingetPath install --id $ID --source winget --accept-package-agreements --accept-source-agreements --silent
+        Write-Log "Winget installation completed successfully"
+        
+        # Validate installation again
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Log "'winget' command is now available"
+            return $true
+        } else {
+            throw "Failed to install 'winget'. Please check logs for details."
+        }
+    }
+}
+#endregion
+
+try {
+    Write-Log "### Starting Winget deployment for package ID: '$ID' ###"
+
+    # Ensure Winget is installed and functional
+    Ensure-Winget
+
+    # Install the specified package using Winget
+    Write-Log "Installing package ID: '$ID' with Winget..."
+    winget install --id "$ID" --source winget --accept-package-agreements --accept-source-agreements --silent
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Successfully installed $ID"
+        Write-Log "Successfully installed package ID: '$ID'"
+    } else {
+        throw "Installation failed with exit code: $LASTEXITCODE"
     }
-    else {
-        throw "Installation failed with exit code $LASTEXITCODE. Output: $installResult"
-    }
-    #endregion
 
     Write-Log "### Deployment completed successfully ###"
-    exit 0
 }
 catch {
-    Write-Log "ERROR: $($_.Exception.Message)"
-    Write-Log "### Deployment failed ###"
-    exit 1
+    Write-Log "ERROR: $_.Exception.Message"
+}
+finally {
+    Write-Log "### Script execution finished ###"
 }
