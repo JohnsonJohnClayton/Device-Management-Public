@@ -28,43 +28,33 @@ param(
 $ErrorActionPreference = "Stop"
 $logPath = "C:\ProgramData\CatalystTechnologyServices\WingetInstallLog.txt"
 
-# Create log directory if missing
+# Ensure the directory for logs exists
 if (-not (Test-Path (Split-Path $logPath -Parent))) {
     New-Item -Path (Split-Path $logPath -Parent) -ItemType Directory -Force | Out-Null
 }
-#endregion
 
-#region Logging Function
-function Write-Log {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
-    Add-Content -Path $logPath -Value $logEntry -Encoding UTF8
-}
+# Start transcript for session-wide logging
+Start-Transcript -Path $logPath -Append -UseMinimalHeader
 #endregion
 
 #region Winget Detection and Installation
 function Test-Winget {
-    Write-Log "Checking if 'winget' command exists"
+    Write-Host "Checking if 'winget' command exists"
 
     # Check if Winget is a valid command using Get-Command
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Log "'winget' command detected"
+        Write-Host "'winget' command detected"
         return $true
     } else {
-        Write-Log "'winget' command not found. Installing Winget..."
+        Write-Host "'winget' command not found. Installing Winget..."
 
         # Install Microsoft.VCLibs dependency (required for Winget)
-        Write-Log "Installing Microsoft.VCLibs dependency..."
+        Write-Host "Installing Microsoft.VCLibs dependency..."
         Invoke-WebRequest -Uri "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" -OutFile "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -UseBasicParsing
         Add-AppxPackage -Path "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -ErrorAction Stop
 
         # Install Winget from Microsoft Desktop App Installer bundle
-        Write-Log "Downloading and installing Winget..."
+        Write-Host "Downloading and installing Winget..."
         $wingetBundle = "https://aka.ms/getwinget"
         $installerPath = "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
         
@@ -75,11 +65,11 @@ function Test-Winget {
         Remove-Item "$env:TEMP\Microsoft.VCLibs.x64.14.00.Desktop.appx" -Force
         Remove-Item $installerPath -Force
 
-        Write-Log "Winget installation completed successfully"
+        Write-Host "Winget installation completed successfully"
         
         # Validate installation again
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Log "'winget' command is now available"
+            Write-Host "'winget' command is now available"
             return $true
         } else {
             throw "Failed to install 'winget'. Please check logs for details."
@@ -89,26 +79,28 @@ function Test-Winget {
 #endregion
 
 try {
-    Write-Log "### Starting Winget deployment for package ID: '$ID' ###"
+    Write-Host "### Starting Winget deployment for package ID: '$ID' ###"
 
     # Ensure Winget is installed and functional
     Test-Winget
 
     # Install the specified package using Winget
-    Write-Log "Installing package ID: '$ID' with Winget..."
+    Write-Host "Installing package ID: '$ID' with Winget..."
     winget install --id "$ID" --source winget --accept-package-agreements --accept-source-agreements --silent
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Successfully installed package ID: '$ID'"
+        Write-Host "Successfully installed package ID: '$ID'"
     } else {
         throw "Installation failed with exit code: $LASTEXITCODE"
     }
 
-    Write-Log "### Deployment completed successfully ###"
+    Write-Host "### Deployment completed successfully ###"
 }
 catch {
-    Write-Log "ERROR: $_.Exception.Message"
+    Write-Host "ERROR: $_.Exception.Message"
 }
 finally {
-    Write-Log "### Script execution finished ###"
+    # Stop transcript to end session logging
+    Write-Host "Stopping transcript..."
+    Stop-Transcript | Out-Null
 }
