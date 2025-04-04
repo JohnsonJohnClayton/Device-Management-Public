@@ -13,7 +13,7 @@
     This parameter is mandatory and specifies the unique identifier for the package to be installed.
 
 .NOTES
-    Version: 1.2
+    Version: 1.3
     Author: John Johnson
     Creation Date: 03-31-2025
     Modified Date: 04-02-2025
