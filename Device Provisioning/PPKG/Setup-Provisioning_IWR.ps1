@@ -11,6 +11,9 @@ the pre-defined, cloud-native script requirements.
 - Ensure that the script has the necessary permissions to access the repository.
 - This script is intended for use during the Out-Of-Box Experience (OOBE) setup phase.
 - This script is one of only 2 files that would be called locally on the device and manually injected into the PPKG; All other script logic lives in the cloud repository.
+    Author: John Johnson
+    Creation Date: 12/19/2024
+    Last Modified: 04/04/2025
 #>
 
 # Ensure TLS 1.2 is enabled (best practice for secure connections)

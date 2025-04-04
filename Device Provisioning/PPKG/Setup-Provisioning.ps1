@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Device setup and provisioning script for Windows SafetyChain Software devices.
+    Device setup and provisioning script for Windows devices during OOBE.
 
 .DESCRIPTION
     This script performs initial setup and configuration tasks for a Windows device, including:
-    - Creating a ZenGuard directory and copying files
+    - Creating a PPKG-Deployment directory and copying files
     - Configuring RunOnce for post-logon setup
     - Importing custom Start Menu configuration
     - Enabling location services
@@ -12,24 +12,25 @@
     - Removing bloatware and unnecessary features
 
 .NOTES
-    Author: John Johnson (ZenGuard Managed Services, LLC)
+    Author: John Johnson
     Creation Date: 12/19/2024
-    Last Modified: 02/14/2025
+    Last Modified: 04/04/2025
 
 .OUTPUTS
-    Log file: $env:ProgramData\ZenGuard\OOBE_DeviceSetupLog.txt
+    Log file: $env:ProgramData\PPKG-Deployment\OOBE_DeviceSetupLog.txt
 #>
 
 # Begin logging
-$dir = "$($env:ProgramData)\ZenGuard"
+$dir = "$($env:ProgramData)\PPKG-Deployment"
 Start-Transcript -Path "$dir\DeviceSetupLog.txt"
 
 Write-Host "Provisioning script started at: $(Get-Date)"
 
 # Run Setup-SCSDevice  once after machine log-on. See MS documentation on RegKey: https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys
-New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Value ("cmd /c powershell.exe -ExecutionPolicy Bypass -File {0}\Setup-SCSDevice_IRM_private.ps1" -f $dir)
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "Setup-Device" -Value ("cmd /c powershell.exe -ExecutionPolicy Bypass -File {0}\Setup-Device_IWR.ps1" -f $dir)
 
-# Import Start Menu
+# Import Start Menu from moved provisioning package files
+# TODO: Download Start2.bin from a reliable source instead of locally copying it.
 # Define source and destination paths
 $sourceFile = "$dir\start2.bin"
 $destinationDirectory = "$env:SystemDrive\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\"
@@ -46,6 +47,8 @@ Copy-Item -Path $sourceFile -Destination $destinationFile -Force
 ###########################################
 ######## Configure Misc. Settings #########
 ###########################################
+
+# Credit to Michael Niehaus for much of the logic here: https://github.com/mtniehaus
 
 # Enable location services so the time zone will be set automatically (even when skipping the privacy page in OOBE) when an administrator signs in
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Type "String" -Value "Allow" -Force
@@ -82,11 +85,13 @@ reg.exe add "HKLM\TempUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Ad
 reg.exe unload HKLM\TempUser | Out-Host
 
 # Set account passwords to not expire
-net accounts /maxpwage:UNLIMITED
+# net accounts /maxpwage:UNLIMITED
 
 ###################################
 ############# Debloat #############
 ###################################
+
+# Credit here to Andrew S. Taylor: https://github.com/andrew-s-taylor
 
 Write-Host "Beginning Debloat Process..."
 $DebloatFolder = "C:\ProgramData\Debloat"
@@ -120,10 +125,7 @@ Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | F
 ############# Installs #############
 ####################################
 
-# Note: Some installs (like Zoom and Slack) are done in the provisioning package itself
-
-Write-Host "Attempting GCPW Install.."
-Start-Process -FilePath "$dir\SAFETYCHAIN_gcpwstandaloneenterprise64.exe" -ArgumentList '/silent /install' -Wait | Out-Host
+# Note: Some installs can be done in the provisioning package itself for sake of simplicity
 
 Write-Host "Attempting Google Drive Install.."
 Start-Process -FilePath "$dir\GoogleDriveSetup.exe" -ArgumentList '--silent --desktop_shortcut --skip_launch_new' -Wait | Out-Host
