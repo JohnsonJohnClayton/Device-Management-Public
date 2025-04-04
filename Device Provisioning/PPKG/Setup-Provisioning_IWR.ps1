@@ -28,6 +28,23 @@ Get-ChildItem | Where-Object{$_.name -ne "Setup-Provisioning.ps1"} | ForEach-Obj
     Copy-Item $_.FullName "$($dir)\$($_.name)" -Force
 }
 
+# Public-access repo call:
+try {
+    # Download the script from public GitHub Repo
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/YourPublicRepo/YourScriptPath/main/Setup-Provisioning.ps1" `
+    -OutFile "C:\ProgramData\PPKG-Deployment\Setup-Device.ps1" `
+    -UseBasicParsing `
+     | cmd /c powershell -WindowStyle Maximized -ExecutionPolicy Bypass -File "C:\ProgramData\PPKG-Deployment\Setup-Provisioning.ps1"
+
+    # Execute the downloaded script
+    powershell -WindowStyle Maximized -ExecutionPolicy Bypass -File "C:\ProgramData\PPKG-Deployment\Setup-Provisioning.ps1"
+}
+catch {
+    Write-Host "Error encountered: $_"
+}
+
+# Private Repo call:
+<#
 try {
     # Download the script from private GitHub Repo
     Invoke-WebRequest -Uri "" `
@@ -41,6 +58,7 @@ try {
 catch {
     Write-Host "Error encountered: $_"
 }
+    #>
 
 # Stop logging
 Stop-Transcript
