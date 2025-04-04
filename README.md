@@ -24,8 +24,6 @@ This repository demonstrates my proficiency in:
 
 ## 📂 Repository Highlights  
 
----
-
 ### **Endpoint Provisioning**  
 Automate device setup with scripts that handle enrollment, configuration, and compliance enforcement—reducing manual effort by up to 70%.
 
