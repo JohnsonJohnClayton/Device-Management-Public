@@ -1,6 +1,17 @@
-#-----------------------------------------------------------------------#
-# Call private script from GitHub to provision device during OOBE setup #
-#-----------------------------------------------------------------------#
+<#
+.SYNOPSIS
+Provisions a device during the OOBE setup process by calling a private script hosted on a a repository (e.g. GitHub).
+
+.DESCRIPTION
+This script is executed as part of the PPKG command file during the device provisioning process. 
+It retrieves and runs a script from a repository to configure the device according to 
+the pre-defined, cloud-native script requirements.
+
+.NOTES
+- Ensure that the script has the necessary permissions to access the repository.
+- This script is intended for use during the Out-Of-Box Experience (OOBE) setup phase.
+- This script is one of only 2 files that would be called locally on the device and manually injected into the PPKG; All other script logic lives in the cloud repository.
+#>
 
 # Ensure TLS 1.2 is enabled (best practice for secure connections)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
