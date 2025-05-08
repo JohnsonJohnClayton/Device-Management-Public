@@ -8,19 +8,17 @@
     - Configuring power settings
     - Initiating BitLocker encryption
     - Running Windows Updates
-    - Running a BitDefender scan after install
 
 .NOTES
-    Author: John Johnson (ZenGuard Managed Services, LLC)
-    Creation Date: 12/19/2024
-    Last Modified: 02/14/2025
+    Author: John Johnson
+    Creation Date: 05/08/2025
 
 .OUTPUTS
-    Logs are written to "$env:ProgramData\ZenGuard\DeviceSetupLog.txt".
+    Logs are written to "$env:ProgramData\PPKG-Deployment\DeviceSetupLog.txt".
 #>
 
 # Begin logging
-$dir = "C:\programdata\ZenGuard"
+$dir = "C:\ProgramData\PPKG-Deployment"
 Start-Transcript -Path "$dir\DeviceSetupLog.txt" -Append
 
 Write-Host "Provisioning script started at: $(Get-Date)"
@@ -29,15 +27,19 @@ Write-Host "Provisioning script started at: $(Get-Date)"
 ############ Define Installs #############
 ##########################################
 
+# Credit is needed here, as this logic is not mine. I having difficulty finding the original source. 
+# These installs are run as-needed from the PPKG command files
+# Files can be ran as system or user - user installs will install for all users
+
 $packages =
 [PSCustomObject]@{
-    Name         = "Drata"
-    Exe          = "Drata-Agent-win.exe"
+    Name         = "Install"
+    Exe          = "install.exe"
     Type         = "User"
     SilentSwitch = "/S"
 }
 
-# Double-Check if McAfee needs to be uninstalled
+# Double-Check if McAfee needs to be uninstalled (needed for A/V installs)
 Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()} | Out-Host
 Get-AppxPackage -AllUsers *mcafee* | Remove-AppPackage -AllUsers
 Get-AppxProvisionedPackage -Online | Where-Object {$_.PackageName -like "*McAfee*"} | ForEach-Object { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -AllUsers }
@@ -71,13 +73,9 @@ foreach ($package in $packages) {
                 Wait             = $true
             }
         }
-
         $result = Start-Process @execute | Out-Host
-
         Write-Host "    ExitCode: $($result.ExitCode)"
-
         Remove-Item "$($dir)\$($package.exe)" -Force
-
         break
     }
     "User" {
@@ -92,12 +90,6 @@ foreach ($package in $packages) {
     }
     }
 }
-
-################################
-######## Datto Install #########
-################################
-Write-Host "Installing Datto..."
-(New-Object System.Net.WebClient).DownloadFile("https://zinfandel.centrastage.net/csm/profile/downloadAgent/cd9b1302-30fd-4601-912f-f6e09a149ed8", "$env:TEMP/AgentInstall.exe");start-process "$env:TEMP/AgentInstall.exe"
 
 ##################################
 ######## Winget Installs #########
@@ -177,13 +169,12 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies
 
 Write-Host "Custom power plan created and activated with specified settings."
 
-# Set GCPW Settings
-reg add "HKEY_LOCAL_MACHINE\Software\Google\GCPW" /v "use_shorter_account_name" /t REG_DWORD /d 1 /f
-reg add "HKEY_LOCAL_MACHINE\Software\Google\GCPW" /v "EnableLocalAccounts " /t REG_DWORD /d 1 /f
-
 ###################################
 ############# Debloat #############
 ###################################
+
+# Running Andrew Taylor's Debloat script again, as it is sometimes missed depending on the system and order of installs
+
 Write-Host "Beginning Debloat Process..."
 $DebloatFolder = "C:\ProgramData\Debloat"
 If (Test-Path $DebloatFolder) {
@@ -212,9 +203,11 @@ invoke-expression -Command "$templateFilePath $arguments"
 # Attempt to remove McAfee
 Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -like "*McAfee*"} | ForEach-Object {$_.Uninstall()}
 
-##############################################
-############ Prep Windows Updates ############
-##############################################
+##########################################
+############  Windows Updates ############
+##########################################
+
+# Here, we will run Windows Updates once everything is installed.
 
 # Install needed modules if necessary for installation in stage 2
 
@@ -234,66 +227,66 @@ if ($null -eq $module) {
     Install-Module PSWindowsUpdate -Confirm:$false -Force
 }
 
+# Initiate Windows Updates in a separate process
+# Move this to the second stage if a reboot is needed
+Write-Host "Running Windows Updates in a separate process..."
+Import-Module PSWindowsUpdate -force
+Start-Process powershell.exe -ArgumentList '-WindowStyle Minimized -NoProfile -ExecutionPolicy Bypass -Command `
+    "Start-Transcript -Path "C:\ProgramData\PPKG-Deployment\DeviceSetupLog.txt" -Append; `
+    Write-Host "Beginning Windows Updates..."; `
+    Install-WindowsUpdate -AcceptAll -Install | Select-Object KB, Result, Title, Size;"'
+Write-Host "`nWindows Updates Begun`n" -ForegroundColor DarkGreen
+
 ####################################
-############# Stage 2 ##############
+############# Cleanup ##############
 ####################################
+# Move this to the second stage if a reboot is needed
+try {
+    # Remove the script files
+    Write-Host "Cleaning up scripts..."
+    Get-ChildItem -Path $dir -Filter "*.ps1" -File | Remove-Item -Force
+    schtasks /Delete /TN "ProvisioningStage2" /F
+    Write-Host "Successfully removed." -ForegroundColor Green
+}
+catch {
+    Write-Host "Cleanup Completed with some errors." -ForegroundColor Yellow
+    Write-Host "Error: $_" -ForegroundColor Red
+}
 
-# Schedule BitDefender Install
-#   -The endpoint needs to be rebooted in order to ensure that McAfee is uninstalled
-#   -Updates applied afterwards
-# Create Stage 2 script & complete provisoining
-$stage2Content = @"
-    # Start logging
-    Start-Transcript -Path "C:\ProgramData\ZenGuard\DeviceSetupLog.txt" -Append
+Write-Host "Provisioning complete!`n" -ForegroundColor Green
+Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
 
-    Write-Host "###################`nBeginning Stage 2 of Provisioning...`n###################`n" -ForegroundColor Green
 
-    Write-Host "Running Windows Updates in a separate process..."
-    Import-Module PSWindowsUpdate -force
-    Start-Process powershell.exe -ArgumentList '-WindowStyle Minimized -NoProfile -ExecutionPolicy Bypass -Command `
-        "Start-Transcript -Path "C:\ProgramData\ZenGuard\DeviceSetupLog.txt" -Append; `
-        Write-Host "Beginning Windows Updates..."; `
-        Install-WindowsUpdate -AcceptAll -Install | Select-Object KB, Result, Title, Size;"'
-    Write-Host "`nWindows Updates Begun`n" -ForegroundColor DarkGreen
-
-    # Install BitDefender
-    Write-Host "Attempting BitDefender Install.."
-    Start-Process -FilePath "C:\ProgramData\ZenGuard\epskit_x64.exe" -ArgumentList '/bdparams /silent' -Wait | Out-Host
-
-    # Run BitDefender Scan
-    Write-Host "Running BitDefender scan job in the background..."
-    Start-Job -ScriptBlock {
-        & 'C:\Program Files\Bitdefender\Endpoint Security\product.console.exe' /c FileScan.OnDemand.RunScanTask custom | Out-Host
-    }   
-
-    try {
-        # Remove the script files
-        Write-Host "Cleaning up scripts..."
-        Get-ChildItem -Path C:\ProgramData\ZenGuard -Filter "*.ps1" -File | Remove-Item -Force
-        schtasks /Delete /TN "ProvisioningStage2" /F
-        Write-Host "Successfully removed." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "Cleanup Completed with some errors." -ForegroundColor Yellow
-    }
-
-    Write-Host "Provisioning complete!`n" -ForegroundColor Green
-    Write-Host "See other window for Windows Update status" -ForegroundColor Yellow
-
-    Stop-Transcript
-"@
-
-$stage2Path = "$dir\Stage2Script.ps1"
-Set-Content -Path $stage2Path -Value $stage2Content
-# Schedule Stage 2
-$action = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-ExecutionPolicy Bypass -File `"$stage2Path`""
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-Register-ScheduledTask -TaskName "ProvisioningStage2" -Action $action -Trigger $trigger -RunLevel Highest -Force
-
-##################################
-############# Reboot #############
-##################################
-
-Write-Host "Rebooting to continue provisoing..." -ForegroundColor Yellow
-Restart-Computer -Force
-Stop-Transcript
+# Uncomment the below lines to run a stage 2 script after a reboot:
+# 
+# ####################################
+# ############# Stage 2 ##############
+# ####################################
+# 
+# # This stage can be configured to run after the next login, if a reboot needs to be performed before any final steps.
+# 
+# $stage2Content = @"
+#     # Start logging
+#     Start-Transcript -Path "C:\ProgramData\PPKG-Deployment\DeviceSetupLog.txt" -Append
+# 
+#     Write-Host "###################`nBeginning Stage 2 of Provisioning...`n###################`n" -ForegroundColor Green
+# 
+#     # Place any additional logic here that need to be run last after a reboot.
+# 
+#     Stop-Transcript
+# "@
+# 
+# $stage2Path = "$dir\Stage2Script.ps1"
+# Set-Content -Path $stage2Path -Value $stage2Content
+# # Schedule Stage 2
+# $action = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-ExecutionPolicy Bypass -File `"$stage2Path`""
+# $trigger = New-ScheduledTaskTrigger -AtLogOn
+# Register-ScheduledTask -TaskName "ProvisioningStage2" -Action $action -Trigger $trigger -RunLevel Highest -Force
+# 
+# ##################################
+# ############# Reboot #############
+# ##################################
+# 
+# Write-Host "Rebooting to continue provisoing..." -ForegroundColor Yellow
+# Restart-Computer -Force
+# Stop-Transcript
