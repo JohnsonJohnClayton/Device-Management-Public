@@ -2,10 +2,14 @@
 .SYNOPSIS
     Deletes stale users
 .DESCRIPTION
-
+    This script deletes stale users from Azure AD based on a list of active UPNs provided in a CSV file. 
+    It connects to Azure AD and MSOnline, retrieves all users, and compares them against the active UPNs. 
+    Users not found in the active UPNs list are marked for deletion.
 .NOTES
     Author: John Johnson
     Date: 09/30/2024
+    THIS SCRIPT IS LEGACY AND IS NO LONGER SUPPORTED BY MICROSOFT
+    NEED TO MIGRATE LOGIC TO MS GRAPH MODULES
 #>
 
 param (
