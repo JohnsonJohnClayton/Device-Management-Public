@@ -25,7 +25,7 @@ This repository demonstrates my proficiency in:
 ## 📂 Repository Highlights  
 
 ### **Endpoint Provisioning**  
-Automate device setup with scripts that handle enrollment, configuration, and compliance enforcement—reducing manual effort by up to 70%.
+Automate device setup with scripts that handle enrollment, configuration, and compliance enforcement—reducing manual effort.
 
 ---
 
@@ -35,7 +35,28 @@ Secure your endpoints with McAfee integration scripts that manage antivirus depl
 ---
 
 ### **macOS Management**  
-Cross-platform support is critical! This repository includes Bash scripts tailored for managing Apple devices in enterprise settings.
+Cross-platform support is critical. This repository includes Bash scripts tailored for managing Apple devices in enterprise settings.
+
+---
+
+### **Microsoft 365 Migration**  
+Cross-tenant Exchange Online and OneDrive migrations, alias synchronization, and hybrid identity matching.
+
+---
+
+### **Identity Administration**  
+Entra dynamic groups, Active Directory group management, and user configuration backup and restore.
+
+---
+
+### **Reporting and Diagnostics**  
+User/device audits, inactive-user reports, OneDrive path checks, and Intune deployment diagnostics.
+
+---
+
+## 📝 Usage  
+
+Scripts use generalized parameters and placeholders. Supply your own environment settings and install the required modules before running them. Review and test each script before use.
 
 ---
 
@@ -45,6 +66,6 @@ This repository is more than just a collection of scripts—it's a showcase of m
 
 ---
 
-I hope this repository gives you a glimpse into my passion for scripting and automation in IT environments. If you’d like to discuss any of these projects or explore how I can bring similar solutions to your organization, feel free to reach out! 😊
+I hope this repository gives you a glimpse into my passion for scripting and automation in IT environments. If you’d like to discuss any of these projects or explore how I can bring similar solutions to your organization, feel free to reach out.
 
 ---

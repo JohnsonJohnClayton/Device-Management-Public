@@ -5,3 +5,38 @@
 *.dmg
 *.iso
 *.zip
+
+# Local operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Generated operational data; keep only explicitly synthetic examples
+*.log
+*.csv
+!*.example.csv
+*.xlsx
+*.bak
+*.local.json
+.env
+.env.*
+MigrationLogs/
+Reports/
+Exports/
+Backups/
+IntuneAppDiag_*/
+MTO_Users_*.json
+*IdentityMapping*.csv
+
+# Download dependencies separately rather than committing module binaries
+Modules/PnP.PowerShell/
+*.dll
+*.pdb
+*.so
+
+# Private keys, credential exports, and provisioning output
+*.pfx
+*.p12
+*.pem
+*.key
+*.clixml
+*.ppkg

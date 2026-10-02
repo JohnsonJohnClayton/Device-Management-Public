@@ -1,0 +1,24 @@
+{
+  "displayName": "Cross-Tenant Migration Operator",
+  "description": "Manage cross-tenant mailbox & OneDrive migrations",
+  "isEnabled": true,
+  "permissions": [
+    {
+      "allowedResourceActions": [
+        "microsoft.exchange/*/read",
+        "microsoft.exchange/*/write",
+        "Microsoft.Online.SharePoint.TenantIdentityMap/IdentityMap/Add",
+        "Microsoft.Online.SharePoint.CrossTenantUserContentMove/Start",
+        "Microsoft.Online.SharePoint.CrossTenantCompatibility/Read",
+        "microsoft.graph/users/read",
+        "microsoft.graph/users/update",
+        "microsoft.graph/directory/subscribedSkus/read",
+        "microsoft.graph/users/assignLicense"
+      ],
+      "notActions": []
+    }
+  ],
+  "assignableScopes": [
+    "/"
+  ]
+}
