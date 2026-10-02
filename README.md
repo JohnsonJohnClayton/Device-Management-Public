@@ -7,8 +7,7 @@ Welcome to my public repository! This is a curated collection of scripts and too
 This repository highlights my ability to solve real-world IT challenges with scripting and automation. Here’s a quick overview of what’s included:
 
 - **🚀 Application Deployment**: Scripts for silent installations, automated updates, and enterprise-wide software rollouts.  
-- **🔧 Device Provisioning**: End-to-end workflows for zero-touch enrollment, configuration, and policy enforcement.  
-- **🛡️ Security Management**: Custom scripts for integrating with McAfee ePO to deploy antivirus solutions and manage policies.  
+- **🔧 Device Provisioning**: End-to-end workflows for zero-touch enrollment, configuration, and policy enforcement.
 - **💻 Cross-Platform Support**: Solutions for managing both Windows and macOS devices, ensuring flexibility in diverse environments.
 
 ---
@@ -18,19 +17,12 @@ This repository demonstrates my proficiency in:
 - **PowerShell**: The backbone of most automation workflows, handling everything from app deployment to system diagnostics.  
 - **Shell Scripting**: Tools for managing macOS and Linux devices with efficiency.  
 - **MDM Solutions**: Integration with platforms like Intune and Jamf to streamline device management.  
-- **Security Tools**: Scripts leveraging the McAfee ePO API for advanced security management.
-
 ---
 
 ## 📂 Repository Highlights  
 
 ### **Endpoint Provisioning**  
 Automate device setup with scripts that handle enrollment, configuration, and compliance enforcement—reducing manual effort.
-
----
-
-### **Security Automation**  
-Secure your endpoints with McAfee integration scripts that manage antivirus deployment, policy updates, and reporting.
 
 ---
 
